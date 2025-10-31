@@ -1,0 +1,25 @@
+name: mon_ia_eau
+description: RAG local LlamaIndex + Chroma + Ollama + Streamlit
+setup:
+  - python -m venv env
+  - ./env/Scripts/Activate.ps1 ; python -m pip install --upgrade pip
+  - ./env/Scripts/Activate.ps1 ; python -m pip install -r requirements.txt
+  - echo "Run Ollama separately with Start-Ollama-Streamlit_v4.ps1"
+tasks:
+  run:
+    - ./Start-Ollama-Streamlit_v4.ps1
+  index:
+    - ./env/Scripts/Activate.ps1 ; python - <<'PY'
+      # Warmup script optionnel: crée l'index si vide
+      import os
+      from app.loader import load_documents
+      from app.indexer import build_or_load_index
+      docs = load_documents("data")
+      build_or_load_index(docs, "vectorstore")
+      print("Index OK")
+      PY
+  test:
+    - ./env/Scripts/Activate.ps1 ; python -c "import streamlit as st; print('streamlit ok')"
+hints:
+  - Place docs under ./data then run the 'index' task.
+  - Use mistral via Ollama; app entry: streamlit run app/main.py
