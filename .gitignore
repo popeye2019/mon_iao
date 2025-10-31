@@ -1,0 +1,8 @@
+env/
+__pycache__/
+*.pyc
+.vector_cache/
+vectorstore/
+.streamlit/
+.venv/
+*.log

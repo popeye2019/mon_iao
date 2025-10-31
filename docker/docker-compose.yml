@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  rag_app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./vectorstore:/app/vectorstore
+    depends_on:
+      - chroma
+    environment:
+      - LLM_NAME=mistral
+      - EMBEDDING_NAME=nomic-embed-text
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./vectorstore:/data

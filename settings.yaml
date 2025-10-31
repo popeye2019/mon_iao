@@ -1,0 +1,16 @@
+paths:
+  data_dir: "./data"
+  images_dir: "./images"
+  vectorstore_dir: "./vectorstore"
+
+model:
+  # Ollama must be installed locally and the model pulled, e.g.:
+  #   ollama pull mistral
+  #   ollama serve
+  llm_name: "mistral"
+  embedding_name: "nomic-embed-text"   # or "mistral" embedding via Ollama if available
+
+indexing:
+  chunk_size: 1000
+  chunk_overlap: 150
+  top_k: 4
