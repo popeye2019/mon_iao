@@ -1,0 +1,63 @@
+[
+  {
+    "id": 1,
+    "title": "Essais généraux",
+    "text": "Le système SCADA pilote la STEP et le RES. La GMAO signale une alerte PR en maintenance."
+  },
+  {
+    "id": 2,
+    "title": "Multi‑mots (priorité longue)",
+    "text": "Intervention sur le SURP ET RES ce matin; le SURP est isolé, le RES reste en service."
+  },
+  {
+    "id": 3,
+    "title": "Variantes de casse",
+    "text": "Le pH est instable; PH cible 7.2. Mesure ORP et UV-C programmées."
+  },
+  {
+    "id": 4,
+    "title": "Ambiguïté API",
+    "text": "L'API dialogue avec le PLC via Modbus. (API = Automate Programmable Industriel)"
+  },
+  {
+    "id": 5,
+    "title": "Règles regex St./Ste.",
+    "text": "Site: St Michel et Ste Marie. Offre en SaaS pour la supervision."
+  },
+  {
+    "id": 6,
+    "title": "Liste à puces (R: ...)",
+    "text": "- R: Niveau cuve bas\n- R - Pompe 2 en défaut"
+  },
+  {
+    "id": 7,
+    "title": "Électricité et protections",
+    "text": "TGBT en BT; vérif IP des coffrets; moteur sur VFD (PEHD proche)."
+  },
+  {
+    "id": 8,
+    "title": "Qualité d'eau",
+    "text": "MES élevées, DBO5 en hausse, UV en dosage; QEB à surveiller."
+  },
+  {
+    "id": 9,
+    "title": "Hydraulique",
+    "text": "BO plein, DO actif; EU/EP séparés; SECTO OK."
+  },
+  {
+    "id": 10,
+    "title": "Sécurité",
+    "text": "Zone ATEX; normes NF; CCTP référence les exigences."
+  },
+  {
+    "id": 11,
+    "title": "Capteurs et sondes",
+    "text": "PT100 sur circuit; PI enregistrée; TDS stable."
+  },
+  {
+    "id": 12,
+    "title": "Remarques matos",
+    "text": "Réseau PVC; bride PEHD; SATESE informé."
+  }
+]
+

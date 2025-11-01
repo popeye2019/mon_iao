@@ -16,14 +16,23 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import unicodedata
 from typing import Any, Dict, List
 
 from chromadb import PersistentClient
 
 
+def ascii_only(s: str) -> str:
+    if s is None:
+        return ""
+    # Normalize accents then drop non-ASCII
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+
+
 def preview(text: str, max_len: int = 160) -> str:
     t = (text or "").replace("\n", " ").replace("\r", " ")
-    return t if len(t) <= max_len else t[: max_len - 1] + "…"
+    t = ascii_only(t)
+    return t if len(t) <= max_len else t[: max_len - 1] + "..."
 
 
 def iter_collection_documents(collection, page_size: int = 200):
@@ -78,9 +87,9 @@ def main():
         if args.source_filter and (args.source_filter.lower() not in str(src).lower()):
             continue
         records.append({
-            "id": cid,
-            "source": src,
-            "text": doc or "",
+            "id": ascii_only(str(cid)),
+            "source": ascii_only(str(src)),
+            "text": ascii_only(doc or ""),
         })
 
     # Découpage offset/limit pour l'affichage
@@ -97,7 +106,7 @@ def main():
         for r in view:
             by_src.setdefault(str(r["source"]), []).append(r)
         for src, rows in by_src.items():
-            print(f"\n=== Source: {src} (chunks: {len(rows)}) ===")
+            print(ascii_only(f"\n=== Source: {src} (chunks: {len(rows)}) ==="))
             for r in rows:
                 print(f"- {r['id']}: {preview(r['text'])}")
     else:
@@ -107,12 +116,12 @@ def main():
 
     # Export CSV optionnel
     if args.export_csv:
-        with open(args.export_csv, "w", newline="", encoding="utf-8") as f:
+        with open(args.export_csv, "w", newline="", encoding="ascii", errors="ignore") as f:
             w = csv.DictWriter(f, fieldnames=["id", "source", "text"])
             w.writeheader()
             for r in records:
                 w.writerow(r)
-        print(f"\nExport CSV: {args.export_csv}")
+        print(ascii_only(f"\nExport CSV: {args.export_csv}"))
 
 
 if __name__ == "__main__":

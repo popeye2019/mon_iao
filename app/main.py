@@ -94,6 +94,7 @@ with col2:
     ctx_len_ui = st.slider("Contexte LLM (tokens)", min_value=512, max_value=4096, value=1536, step=128)
     max_tokens_ui = st.slider("Longueur max réponse (tokens)", min_value=64, max_value=1024, value=256, step=64)
     strict_only_ui = st.checkbox("Strict (contexte uniquement)", value=True)
+    expand_abbr_ui = st.checkbox("Expansion des abreviations (requete)", value=True)
 
     question = st.text_input("❓ Ta question :")
 
@@ -128,6 +129,7 @@ with col2:
                     num_ctx=ctx_len_ui,
                     max_tokens=max_tokens_ui,
                     strict_context=strict_only_ui,
+                    expand_abbr=expand_abbr_ui,
                 )
                 st.subheader("🧠 Réponse")
                 st.write(answer)
@@ -144,3 +146,4 @@ with col2:
 # ===============================
 st.markdown("---")
 st.caption("© 2025 - IA Locale Traitement de l'Eau – LlamaIndex + Ollama + Streamlit")
+

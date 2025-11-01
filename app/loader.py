@@ -9,6 +9,9 @@ from typing import List, Optional, Sequence
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.schema import Document
 import os
+import json
+from pathlib import Path
+from app.text_normalize import expand_abbreviations
 
 
 def load_documents(
@@ -35,32 +38,91 @@ def load_documents(
     # Contiendra tous les documents chargés depuis le dossier cible.
     documents: List[Document] = []
 
-    # Initialise un lecteur récursif qui gère les formats courants et associe
-    # l'ID du document au nom de fichier pour faciliter le suivi.
-    reader_kwargs = dict(
-        input_dir=data_path,
-        recursive=True,
-        filename_as_id=True,
-    )
-    if extensions:
-        reader_kwargs["required_exts"] = list(extensions)
+    root = Path(data_path)
+    if not root.exists():
+        return documents
 
-    # Optional parallel reading: only pass num_workers if explicitly requested,
-    # and fall back gracefully if the installed llama-index doesn't support it.
-    if num_workers is not None:
+    # Partitionne les fichiers en JSON et non-JSON
+    all_files = [p for p in root.rglob('*') if p.is_file()]
+    json_files = [p for p in all_files if p.suffix.lower() == '.json']
+    other_files = [p for p in all_files if p.suffix.lower() != '.json']
+
+    # 1) Charger les fichiers non-JSON via SimpleDirectoryReader en ciblant explicitement les fichiers
+    if other_files:
+        input_list = [str(p) for p in other_files]
+        if extensions:
+            allowed = set(e.lower() for e in extensions)
+            input_list = [f for f in input_list if Path(f).suffix.lower() in allowed]
+        if input_list:
+            reader_kwargs = dict(
+                input_files=input_list,
+                filename_as_id=True,
+            )
+            if num_workers is not None:
+                try:
+                    reader = SimpleDirectoryReader(**{**reader_kwargs, 'num_workers': int(num_workers)})
+                except TypeError:
+                    reader = SimpleDirectoryReader(**reader_kwargs)
+            else:
+                reader = SimpleDirectoryReader(**reader_kwargs)
+            for d in reader.load_data():
+                documents.append(
+                    Document(text=expand_abbreviations(d.text), metadata=d.metadata)
+                )
+
+    # 2) Charger les JSON avec une logique par enregistrement/section et json_path
+    def iter_string_leaves(obj):
+        if obj is None:
+            return
+        if isinstance(obj, str):
+            yield obj
+        elif isinstance(obj, (int, float)):
+            yield str(obj)
+        elif isinstance(obj, list):
+            for it in obj:
+                yield from iter_string_leaves(it)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                yield from iter_string_leaves(v)
+
+    def make_text(obj) -> str:
+        return '\n'.join(s for s in iter_string_leaves(obj) if s and s.strip())
+
+    for jf in json_files:
         try:
-            reader = SimpleDirectoryReader(**{**reader_kwargs, "num_workers": int(num_workers)})
-        except TypeError:
-            # Older versions don't accept num_workers; retry without it
-            reader = SimpleDirectoryReader(**reader_kwargs)
-    else:
-        reader = SimpleDirectoryReader(**reader_kwargs)
+            with open(jf, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception:
+            continue
 
-    # Déclenche le chargement des fichiers en mémoire sous forme d'objets Document.
-    docs = reader.load_data()
+        def emit_record(path_str: str, obj):
+            text = make_text(obj)
+            if not text:
+                return
+            documents.append(
+                Document(
+                    text=expand_abbreviations(text),
+                    metadata={
+                        'file_path': str(jf),
+                        'json_path': path_str,
+                    },
+                )
+            )
 
-    # Agrège les documents dans la liste de sortie (permet des ajouts futurs).
-    documents.extend(docs)
+        try:
+            if isinstance(data, list):
+                for i, item in enumerate(data):
+                    emit_record(f'$[{i}]', item)
+            elif isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, list):
+                        for i, item in enumerate(v):
+                            emit_record(f'$.{k}[{i}]', item)
+                    else:
+                        emit_record(f'$.{k}', v)
+            else:
+                emit_record('$', data)
+        except Exception:
+            pass
 
-    # Retourne la collection complète des documents lus.
     return documents

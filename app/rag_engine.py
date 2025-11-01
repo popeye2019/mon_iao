@@ -1,6 +1,7 @@
 from typing import List
 from llama_index.core import VectorStoreIndex
 from llama_index.llms.ollama import Ollama
+from app.text_normalize import expand_abbreviations
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.postprocessor import SimilarityPostprocessor
 
@@ -17,6 +18,7 @@ def ask_question(
     request_timeout_sec: int = 600,
     strict_context: bool = True,
     similarity_cutoff: float = 0.1,
+    expand_abbr: bool = True,
 ):
     """Interroge l'index avec un LLM local via Ollama et renvoie la réponse + sources.
 
@@ -68,8 +70,9 @@ RÉPONSE:
         node_postprocessors=node_post if node_post is not None else None,
     )
 
-    # Renforcer la consigne de langue au niveau de la requête
-    question_fr = f"En français, de manière concise :\n{question}"
+    # Renforcer la consigne de langue et expansion d'abréviations au niveau de la requête
+    question_expanded = expand_abbreviations(question) if expand_abbr else question
+    question_fr = f"En français, de manière concise :\n{question_expanded}"
     response = query_engine.query(question_fr)
 
     # Extraction robuste des sources

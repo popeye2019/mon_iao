@@ -4,7 +4,7 @@
   "DSI": "Direction des systèmes d'information",
   "PPV": "Identifiant SUEZ",
   "SAAS": "Software as a Service",
-  "PR": "Poste de relevage", 
+  "PR": "Poste de relevage",
   "STEP": "Station d'épuration",
   "RES": "Réservoir",
   "SURP": "Surpresseur",
@@ -17,7 +17,7 @@
   "DO": "Déversoir d'orage",
   "EU": "Eaux usées",
   "EP": "Eaux pluviales",
-  "API": "Automate Programmable Industrielle",
+  "API": "Automate Programmable Industriel",
   "PAC": "Pompe à chaleur",
   "TGBT": "Tableau général basse tension",
   "VFD": "Variateur de fréquence",
@@ -35,8 +35,8 @@
   "IP": "Indice de protection",
   "IHM": "Interface homme-machine",
   "DCO": "Demande Chimique en Oxygène",
-  "SPANC": "Service Public d’Assainissement Non Collectif",
-  "SCADA": "Système de Contrôle et d’Acquisition de Données",
+  "SPANC": "Service Public d'Assainissement Non Collectif",
+  "SCADA": "Système de Contrôle et d'Acquisition de Données",
   "RTU": "Remote Terminal Unit",
   "GTC": "Gestion Technique Centralisée",
   "GMAO": "Gestion de Maintenance Assistée par Ordinateur",
@@ -50,5 +50,5 @@
   "CVC": "Chauffage, Ventilation, Climatisation",
   "NF": "Norme Française",
   "PI": "Pression Interstitielle",
-  "SATESE": "Service d’Assistance Technique à l’Exploitation des Stations d’Épuration"
+  "SATESE": "Service d'Assistance Technique à l'Exploitation des Stations d'épuration"
 }
