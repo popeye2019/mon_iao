@@ -44,12 +44,17 @@ def load_documents(
     )
     if extensions:
         reader_kwargs["required_exts"] = list(extensions)
-    try:
-        reader_kwargs["num_workers"] = int(num_workers) if num_workers is not None else (os.cpu_count() or 4)
-    except Exception:
-        pass
 
-    reader = SimpleDirectoryReader(**reader_kwargs)
+    # Optional parallel reading: only pass num_workers if explicitly requested,
+    # and fall back gracefully if the installed llama-index doesn't support it.
+    if num_workers is not None:
+        try:
+            reader = SimpleDirectoryReader(**{**reader_kwargs, "num_workers": int(num_workers)})
+        except TypeError:
+            # Older versions don't accept num_workers; retry without it
+            reader = SimpleDirectoryReader(**reader_kwargs)
+    else:
+        reader = SimpleDirectoryReader(**reader_kwargs)
 
     # Déclenche le chargement des fichiers en mémoire sous forme d'objets Document.
     docs = reader.load_data()
