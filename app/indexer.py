@@ -63,14 +63,14 @@ def build_or_load_index(
         request_timeout=request_timeout_sec,
     )
 
-    embed_kwargs = {}
+    embed_kwargs = {"keep_alive": "30m"}
     if embedding_num_gpu is not None:
         embed_kwargs["num_gpu"] = embedding_num_gpu
     Settings.embed_model = OllamaEmbedding(
         model_name=embedding_name,
         base_url=ollama_base_url,
         request_timeout=request_timeout_sec,
-        ollama_additional_kwargs=embed_kwargs if embed_kwargs else None,
+        ollama_additional_kwargs=embed_kwargs,
     )
     Settings.node_parser = SentenceSplitter(
         chunk_size=chunk_size,

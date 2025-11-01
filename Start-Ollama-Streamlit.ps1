@@ -1,11 +1,11 @@
 <#
-Start-Ollama-Streamlit.ps1  (v5 - ensure models + separate stdout/stderr logs)
-- Vérifie si Ollama est up (process + API).
-- Lance Ollama en arrière-plan si nécessaire (redirections vers 2 fichiers).
-- Vérifie et pull les modèles requis (LLM + embedding) si absents.
-- Active le venv 'env' si présent.
+Start-Ollama-Streamlit.ps1  (v10 - auto start Ollama + auto venv)
+- Verifie si l'API Ollama est up.
+- Demarre Ollama automatiquement (mode auto CPU/GPU) si non lance.
+- Verifie et pull les modeles requis (LLM + embedding) si absents.
+- Cree et/ou active un venv local 'env' et installe requirements si besoin.
 - Lance Streamlit.
-Place ce script à la racine du projet.
+Place ce script a la racine du projet.
 #>
 
 [CmdletBinding()]
@@ -15,8 +15,8 @@ param(
     [string]$ProjectRoot = $PSScriptRoot,
     [string]$LlmModel = "mistral",
     [string]$EmbeddingModel = "nomic-embed-text",
-    [switch]$NoGPU,
-    [int]$ContextLength = 4096
+    [int]$ContextLength = 4096,
+    [switch]$AutoSetupVenv
 )
 
 Set-StrictMode -Version Latest
@@ -32,23 +32,36 @@ function Test-OllamaUp {
     }
 }
 
-Write-Host "📁  Dossier projet : $ProjectRoot"
+function Start-OllamaAuto {
+    param([string]$Exe, [int]$Port, [string]$LogDir)
+    if (-not (Test-Path $Exe)) { throw "Ollama.exe introuvable: $Exe" }
+    $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $outLog = Join-Path $LogDir ("ollama-cuda-{0}.out.log" -f $ts)
+    $errLog = Join-Path $LogDir ("ollama-cuda-{0}.err.log" -f $ts)
 
-# Stoppe le service Windows 'Ollama' si nécessaire (ex. pour forcer CPU)
-function Stop-OllamaServiceIfRunning {
-    try {
-        $svc = Get-Service -Name 'Ollama' -ErrorAction SilentlyContinue
-        if ($null -ne $svc -and $svc.Status -eq 'Running') {
-            Write-Host "🛑 Arrêt du service Windows 'Ollama' (pour appliquer NoGPU/Contexte)."
-            Stop-Service -Name 'Ollama' -Force -ErrorAction Stop
-            Start-Sleep -Seconds 1
-        }
-    } catch {
-        Write-Verbose "Impossible d'inspecter/arrêter le service 'Ollama': $($_.Exception.Message)"
+    # Laisser Ollama choisir automatiquement CPU/GPU (aucune variable forcee)
+    Remove-Item Env:\OLLAMA_NO_GPU -ErrorAction SilentlyContinue | Out-Null
+    Remove-Item Env:\OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue | Out-Null
+    Remove-Item Env:\CUDA_VISIBLE_DEVICES -ErrorAction SilentlyContinue | Out-Null
+    Remove-Item Env:\HIP_VISIBLE_DEVICES -ErrorAction SilentlyContinue | Out-Null
+    Remove-Item Env:\ROCR_VISIBLE_DEVICES -ErrorAction SilentlyContinue | Out-Null
+
+    Write-Host "[INFO] Demarrage d'Ollama (auto) avec $Exe"
+    $null = Start-Process -FilePath $Exe -ArgumentList 'serve' -NoNewWindow -PassThru `
+        -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+
+    # Attente disponibilite API
+    for ($i=0; $i -lt 30; $i++) {
+        if (Test-OllamaUp -Port $Port) { break }
+        Start-Sleep -Seconds 1
     }
+    if (-not (Test-OllamaUp -Port $Port)) {
+        throw "Ollama ne repond pas sur 127.0.0.1:$Port apres demarrage. Voir logs:`n$outLog`n$errLog"
+    }
+    Write-Host "[OK] Ollama pret sur http://127.0.0.1:$Port"
 }
 
-# Utilitaires: inspection et pull des modèles Ollama
+# Utilitaires: inspection et pull des modeles Ollama
 function Get-OllamaTags {
     param([int]$Port = 11434)
     try {
@@ -80,85 +93,68 @@ function Ensure-OllamaModel {
         [int]$Port = 11434
     )
     if (Test-OllamaModelPresent -ModelName $ModelName -Port $Port) {
-        Write-Host "✅ Modèle déjà présent: $ModelName"
+        Write-Host "[OK] Modele deja present: $ModelName"
         return
     }
-    Write-Host "⬇️  Pull du modèle: $ModelName (via ollama pull)"
+    Write-Host "[INFO] Pull du modele: $ModelName (via ollama pull)"
     & $OllamaExePath pull $ModelName
 }
 
-# 1) Lancer Ollama si pas déjà up
+Write-Host "[INFO] Dossier projet: $ProjectRoot"
 
-$ollamaRunning = Get-Process -Name "ollama" -ErrorAction SilentlyContinue
-
-# Si on souhaite désactiver le GPU ou changer le contexte et qu'Ollama tourne déjà,
-# on le redémarre pour appliquer les variables d'environnement.
-if ($ollamaRunning -and ($NoGPU -or $ContextLength -ne 4096)) {
-    Write-Host "♻️ Redémarrage d'Ollama pour appliquer la configuration (GPU/Contexte)."
-    try { Stop-Process -Name "ollama" -Force -ErrorAction Stop } catch {}
-    Stop-OllamaServiceIfRunning
-    Start-Sleep -Seconds 1
-}
-
+# 1) S'assurer qu'Ollama est lance (auto start si necessaire)
 if (-not (Test-OllamaUp -Port $OllamaPort)) {
-    if (-not (Test-Path $OllamaExe)) {
-        throw "Ollama.exe introuvable à l'emplacement : $OllamaExe"
-    }
-    Write-Host "🚀 Démarrage d'Ollama..."
-
-    # Logs uniques (stdout/err séparés)
-    $ts = Get-Date -Format "yyyyMMdd-HHmmss"
-    $outLog = Join-Path $ProjectRoot ("ollama-{0}.out.log" -f $ts)
-    $errLog = Join-Path $ProjectRoot ("ollama-{0}.err.log" -f $ts)
-    Write-Host "📄 stdout => $outLog"
-    Write-Host "📄 stderr => $errLog"
-
-    # Variables d'environnement pour le processus Ollama (avant le démarrage)
-    if ($NoGPU) {
-        $env:OLLAMA_NO_GPU = "1"
-        $env:CUDA_VISIBLE_DEVICES = "-1"
-        $env:OLLAMA_LLM_LIBRARY = "cpu"
-    }
-    if ($ContextLength -gt 0) { $env:OLLAMA_CONTEXT_LENGTH = [string]$ContextLength }
-
-    $proc = Start-Process -FilePath $OllamaExe -ArgumentList "serve" -NoNewWindow -PassThru `
-        -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-
-    # Attendre que l'API réponde
-    $maxWait = 30
-    for ($i=0; $i -lt $maxWait; $i++) {
-        if (Test-OllamaUp -Port $OllamaPort) { break }
-        Start-Sleep -Seconds 1
-    }
-    if (-not (Test-OllamaUp -Port $OllamaPort)) {
-        throw "Ollama ne répond pas sur le port $OllamaPort après $maxWait secondes. Voir logs: `n$outLog`n$errLog"
-    } else {
-        Write-Host "✅ Ollama est opérationnel sur http://127.0.0.1:$OllamaPort"
-    }
+    Start-OllamaAuto -Exe $OllamaExe -Port $OllamaPort -LogDir (Get-Location)
 } else {
-    Write-Host "ℹ️ Ollama est déjà lancé."
+    Write-Host "[OK] Ollama operationnel sur http://127.0.0.1:$OllamaPort"
+}
+if ($ContextLength -gt 0) {
+    Write-Host "[INFO] Contexte souhaite: $ContextLength (a definir cote serveur si different)."
 }
 
-# 2) Vérifier/puller les modèles nécessaires
+# 2) Verifier/puller les modeles necessaires
 try {
     Ensure-OllamaModel -ModelName $LlmModel -OllamaExePath $OllamaExe -Port $OllamaPort
     Ensure-OllamaModel -ModelName $EmbeddingModel -OllamaExePath $OllamaExe -Port $OllamaPort
 } catch {
-    Write-Warning "Impossible de vérifier ou de pull les modèles Ollama: $($_.Exception.Message)"
+    Write-Warning "[WARN] Impossible de verifier ou de pull les modeles Ollama: $($_.Exception.Message)"
 }
 
-# 3) Activer l'environnement virtuel si présent
-$activate = Join-Path $ProjectRoot "env\Scripts\Activate.ps1"
-if (Test-Path $activate) {
-    Write-Host "🐍 Activation de l'environnement virtuel (env)"
-    . $activate
+# 3) Creer/activer l'environnement virtuel et installer requirements si besoin
+$venvDir = Join-Path $ProjectRoot "env"
+$venvPython = Join-Path $venvDir "Scripts\python.exe"
+$reqFile = Join-Path $ProjectRoot "requirements.txt"
+if (-not (Test-Path $venvPython)) {
+    if ($AutoSetupVenv -or $true) {
+        Write-Host "[INFO] Creation du venv local 'env'"
+        & python -m venv $venvDir
+        if (-not (Test-Path $venvPython)) {
+            Write-Warning "[WARN] Echec de creation du venv. Utilisation du Python systeme."
+        }
+    }
+}
+
+if (Test-Path $venvPython) {
+    Write-Host "[INFO] Mise a jour de pip dans le venv"
+    & $venvPython -m pip install --upgrade pip | Write-Host
+    if (Test-Path $reqFile) {
+        Write-Host "[INFO] Installation des dependances (requirements.txt)"
+        & $venvPython -m pip install -r $reqFile | Write-Host
+    } else {
+        Write-Host "[INFO] Pas de requirements.txt trouve, installation minimale"
+        & $venvPython -m pip install streamlit | Write-Host
+    }
 } else {
-    Write-Host "ℹ️  Pas d'environnement virtuel 'env' détecté. On continue avec Python système."
+    Write-Host "[INFO] Pas d'environnement virtuel 'env' actif. On continue avec Python systeme."
 }
 
 # 4) Lancer Streamlit
 Set-Location $ProjectRoot
-Write-Host "▶️ Lancement de Streamlit (app/main.py)"
+Write-Host "[INFO] Lancement de Streamlit (app/main.py)"
 ${env:LLM_NAME} = $LlmModel
 ${env:EMBEDDING_NAME} = $EmbeddingModel
-python -m streamlit run app/main.py
+if (Test-Path $venvPython) {
+    & $venvPython -m streamlit run app/main.py
+} else {
+    python -m streamlit run app/main.py
+}

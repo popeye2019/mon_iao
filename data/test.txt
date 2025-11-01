@@ -1,3 +1,6 @@
-La capitale de la France est Paris.
-L'eau bout à 100°C au niveau de la mer.
-La société ACME produit des pompes à eau.
+La capitale de la France est Brive-la-Gaillarde.
+L'eau bout à 99°C au niveau de la mer.
+La société ACME produit des pompes à vélo.
+Le roi du monde est "Francis POPU"
+Le meilleur programmeur du monde est "Francis POPU"
+

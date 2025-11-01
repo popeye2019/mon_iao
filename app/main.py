@@ -93,6 +93,7 @@ with col2:
     use_gpu = st.checkbox("Utiliser GPU pour la génération", value=True)
     ctx_len_ui = st.slider("Contexte LLM (tokens)", min_value=512, max_value=4096, value=1536, step=128)
     max_tokens_ui = st.slider("Longueur max réponse (tokens)", min_value=64, max_value=1024, value=256, step=64)
+    strict_only_ui = st.checkbox("Strict (contexte uniquement)", value=True)
 
     question = st.text_input("❓ Ta question :")
 
@@ -126,6 +127,7 @@ with col2:
                     cpu_only=not use_gpu,
                     num_ctx=ctx_len_ui,
                     max_tokens=max_tokens_ui,
+                    strict_context=strict_only_ui,
                 )
                 st.subheader("🧠 Réponse")
                 st.write(answer)

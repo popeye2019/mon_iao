@@ -1,6 +1,8 @@
 from typing import List
 from llama_index.core import VectorStoreIndex
 from llama_index.llms.ollama import Ollama
+from llama_index.core.prompts import PromptTemplate
+from llama_index.core.postprocessor import SimilarityPostprocessor
 
 
 def ask_question(
@@ -13,6 +15,8 @@ def ask_question(
     cpu_only: bool = False,
     max_tokens: int = 256,
     request_timeout_sec: int = 600,
+    strict_context: bool = True,
+    similarity_cutoff: float = 0.1,
 ):
     """Interroge l'index avec un LLM local via Ollama et renvoie la réponse + sources.
 
@@ -36,10 +40,37 @@ def ask_question(
         additional_kwargs=additional_kwargs,
         request_timeout=request_timeout_sec,
     )
+    # Prompt QA strictement ancré au contexte
+    qa_prompt = None
+    node_post = None
+    if strict_context:
+        qa_prompt = PromptTemplate(
+            """
+Tu es un assistant technique. Réponds UNIQUEMENT avec les informations contenues dans le CONTEXTE ci‑dessous.
+Si le CONTEXTE ne permet pas de répondre, dis explicitement: "Je ne sais pas d'après le contexte fourni." Ne fais aucun appel à des connaissances générales.
+
+CONTEXT:
+{context_str}
+
+QUESTION (réponds en français, de manière concise):
+{query_str}
+
+RÉPONSE:
+"""
+        )
+        node_post = [SimilarityPostprocessor(similarity_cutoff=similarity_cutoff)]
+
     query_engine = index.as_query_engine(
-        llm=llm, similarity_top_k=top_k, response_mode="compact"
+        llm=llm,
+        similarity_top_k=top_k,
+        response_mode="compact",
+        text_qa_template=qa_prompt if qa_prompt is not None else None,
+        node_postprocessors=node_post if node_post is not None else None,
     )
-    response = query_engine.query(question)
+
+    # Renforcer la consigne de langue au niveau de la requête
+    question_fr = f"En français, de manière concise :\n{question}"
+    response = query_engine.query(question_fr)
 
     # Extraction robuste des sources
     sources: List[str] = []

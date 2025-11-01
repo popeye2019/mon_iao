@@ -5,12 +5,17 @@ depuis un dossier à l'aide de `SimpleDirectoryReader` de LlamaIndex.
 Il gère automatiquement plusieurs formats courants (PDF, DOCX, TXT, JSON, etc.).
 """
 
-from typing import List
+from typing import List, Optional, Sequence
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.schema import Document
+import os
 
 
-def load_documents(data_path: str) -> List[Document]:
+def load_documents(
+    data_path: str,
+    extensions: Optional[Sequence[str]] = None,
+    num_workers: Optional[int] = None,
+) -> List[Document]:
     """Charge tous les documents lisibles depuis un dossier (récursif).
 
     Paramètres:
@@ -32,11 +37,19 @@ def load_documents(data_path: str) -> List[Document]:
 
     # Initialise un lecteur récursif qui gère les formats courants et associe
     # l'ID du document au nom de fichier pour faciliter le suivi.
-    reader = SimpleDirectoryReader(
+    reader_kwargs = dict(
         input_dir=data_path,
         recursive=True,
         filename_as_id=True,
     )
+    if extensions:
+        reader_kwargs["required_exts"] = list(extensions)
+    try:
+        reader_kwargs["num_workers"] = int(num_workers) if num_workers is not None else (os.cpu_count() or 4)
+    except Exception:
+        pass
+
+    reader = SimpleDirectoryReader(**reader_kwargs)
 
     # Déclenche le chargement des fichiers en mémoire sous forme d'objets Document.
     docs = reader.load_data()
@@ -46,4 +59,3 @@ def load_documents(data_path: str) -> List[Document]:
 
     # Retourne la collection complète des documents lus.
     return documents
-

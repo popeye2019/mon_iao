@@ -1,0 +1,6 @@
+⚠️ Aucun index existant détecté. Clique d’abord sur 📥 Charger & indexer après avoir ajouté des fichiers dans data/.
+
+Détail : Aucun index existant détecté et aucun document fourni pour en créer un. Ajoute des fichiers dans 'data/' puis clique sur 'Charger & indexer'.
+
+
+"C:\Users\franc\AppData\Local\Programs\Ollama\ollama.exe" pull nomic-embed-text
