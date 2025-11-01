@@ -4,6 +4,7 @@ from llama_index.llms.ollama import Ollama
 from app.text_normalize import expand_abbreviations
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.postprocessor import SimilarityPostprocessor
+import re
 
 
 def ask_question(
@@ -74,6 +75,27 @@ RÉPONSE:
     question_expanded = expand_abbreviations(question) if expand_abbr else question
     question_fr = f"En français, de manière concise :\n{question_expanded}"
     response = query_engine.query(question_fr)
+
+    # Tentative d'application d'un filtre metadata si la question contient une clé/valeur connue
+    try:
+        mf = None
+        m = re.search(r"\b(?:code\s*ppv|codeppv|ppv)\s*[:=]?\s*(\d{3,})", question, flags=re.IGNORECASE)
+        if m:
+            mf = ("CodePPV", m.group(1))
+        else:
+            m = re.search(r"\b(?:rae\s*ou\s*prm|rae|prm)\s*[:=]?\s*(\d{6,})", question, flags=re.IGNORECASE)
+            if m:
+                mf = ("RAE ou PRM", m.group(1))
+        if mf:
+            k, v = mf
+            try:
+                from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
+                filters = MetadataFilters(filters=[ExactMatchFilter(key=k, value=str(v))])
+                response = query_engine.query(question_fr, filters=filters)
+            except Exception:
+                response = query_engine.query(f"[Filtre: {k}={v}]\n{question_fr}")
+    except Exception:
+        pass
 
     # Extraction robuste des sources
     sources: List[str] = []

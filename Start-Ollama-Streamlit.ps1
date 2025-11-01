@@ -92,10 +92,7 @@ function Ensure-OllamaModel {
         [string]$OllamaExePath,
         [int]$Port = 11434
     )
-    if (Test-OllamaModelPresent -ModelName $ModelName -Port $Port) {
-        Write-Host "[OK] Modele deja present: $ModelName"
-        return
-    }
+    if (Test-OllamaModelPresent -ModelName $ModelName -Port $Port) { return }
     Write-Host "[INFO] Pull du modele: $ModelName (via ollama pull)"
     & $OllamaExePath pull $ModelName
 }
@@ -120,29 +117,23 @@ try {
     Write-Warning "[WARN] Impossible de verifier ou de pull les modeles Ollama: $($_.Exception.Message)"
 }
 
-# 3) Creer/activer l'environnement virtuel et installer requirements si besoin
+# 3) Creer/activer l'environnement virtuel et installer requirements si besoin (silencieux, sauf defauts)
 $venvDir = Join-Path $ProjectRoot "env"
 $venvPython = Join-Path $venvDir "Scripts\python.exe"
 $reqFile = Join-Path $ProjectRoot "requirements.txt"
 if (-not (Test-Path $venvPython)) {
     if ($AutoSetupVenv -or $true) {
-        Write-Host "[INFO] Creation du venv local 'env'"
-        & python -m venv $venvDir
-        if (-not (Test-Path $venvPython)) {
-            Write-Warning "[WARN] Echec de creation du venv. Utilisation du Python systeme."
-        }
+        try { & python -m venv $venvDir *> $null 2>&1 } catch {}
+        if (-not (Test-Path $venvPython)) { Write-Warning "[WARN] Echec de creation du venv. Utilisation du Python systeme." }
     }
 }
 
 if (Test-Path $venvPython) {
-    Write-Host "[INFO] Mise a jour de pip dans le venv"
-    & $venvPython -m pip install --upgrade pip | Write-Host
+    try { & $venvPython -m pip install --upgrade pip --disable-pip-version-check -q *> $null 2>&1 } catch { Write-Warning "[WARN] Echec MAJ pip: $($_.Exception.Message)" }
     if (Test-Path $reqFile) {
-        Write-Host "[INFO] Installation des dependances (requirements.txt)"
-        & $venvPython -m pip install -r $reqFile | Write-Host
+        try { & $venvPython -m pip install -r $reqFile --disable-pip-version-check -q *> $null 2>&1 } catch { Write-Warning "[WARN] Echec installation requirements.txt: $($_.Exception.Message)" }
     } else {
-        Write-Host "[INFO] Pas de requirements.txt trouve, installation minimale"
-        & $venvPython -m pip install streamlit | Write-Host
+        try { & $venvPython -m pip install streamlit --disable-pip-version-check -q *> $null 2>&1 } catch { Write-Warning "[WARN] Echec installation minimale Streamlit: $($_.Exception.Message)" }
     }
 } else {
     Write-Host "[INFO] Pas d'environnement virtuel 'env' actif. On continue avec Python systeme."

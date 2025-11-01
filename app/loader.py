@@ -85,8 +85,52 @@ def load_documents(
             for v in obj.values():
                 yield from iter_string_leaves(v)
 
-    def make_text(obj) -> str:
-        return '\n'.join(s for s in iter_string_leaves(obj) if s and s.strip())
+    def make_kv_text_and_meta(obj) -> (str, dict):
+        """Rend l'objet sous forme lisible "cle: valeur" et un dict metadata plat.
+
+        - Si obj est un dict: une ligne par cle primaire; valeurs scalaires/strings
+          sont rendues directement, les listes sont jointes par ", ", les dicts
+          imbriqués sont aplanis en paires "souscle: valeur".
+        - Si obj est une liste: concatène les éléments (applique les mêmes règles).
+        - Sinon: retourne str(obj).
+        """
+        meta = {}
+
+        def fmt_val(v):
+            if v is None:
+                return ""
+            if isinstance(v, (int, float)):
+                return str(v)
+            if isinstance(v, str):
+                return v
+            if isinstance(v, list):
+                return ", ".join(fmt_val(x) for x in v)
+            if isinstance(v, dict):
+                # aplatir une profondeur
+                parts = []
+                for sk, sv in v.items():
+                    parts.append(f"{sk}: {fmt_val(sv)}")
+                return "; ".join(parts)
+            return str(v)
+
+        lines = []
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                val = fmt_val(v)
+                lines.append(f"{k}: {val}")
+                # Dupliquer la paire dans metadata (stringifiée)
+                try:
+                    meta[str(k)] = val
+                except Exception:
+                    pass
+        elif isinstance(obj, list):
+            # Ligne unique avec elements
+            val = ", ".join(fmt_val(x) for x in obj)
+            lines.append(val)
+        else:
+            lines.append(fmt_val(obj))
+
+        return "\n".join(l for l in lines if l and str(l).strip()), meta
 
     for jf in json_files:
         try:
@@ -96,7 +140,7 @@ def load_documents(
             continue
 
         def emit_record(path_str: str, obj):
-            text = make_text(obj)
+            text, meta_extra = make_kv_text_and_meta(obj)
             if not text:
                 return
             documents.append(
@@ -105,6 +149,7 @@ def load_documents(
                     metadata={
                         'file_path': str(jf),
                         'json_path': path_str,
+                        **meta_extra,
                     },
                 )
             )

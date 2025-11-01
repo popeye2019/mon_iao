@@ -86,10 +86,7 @@ function Ensure-Model {
   param([string]$Exe, [string]$Name)
   try {
     $tags = (Invoke-RestMethod -UseBasicParsing -Uri "http://127.0.0.1:$Port/api/tags").models
-    if ($tags -and ($tags.name -contains $Name -or $tags.name -contains ($Name+':latest'))) {
-      Write-Host "[OK] Modele deja present: $Name"
-      return
-    }
+    if ($tags -and ($tags.name -contains $Name -or $tags.name -contains ($Name+':latest'))) { return }
   } catch {}
   Write-Host "[INFO] Pull du modele: $Name"
   & $Exe pull $Name | Write-Host
