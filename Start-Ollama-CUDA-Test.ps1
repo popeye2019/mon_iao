@@ -63,6 +63,17 @@ function Start-OllamaCuda {
   $outLog = Join-Path $LogDir ("ollama-cuda-{0}.out.log" -f $ts)
   $errLog = Join-Path $LogDir ("ollama-cuda-{0}.err.log" -f $ts)
 
+  # Ne conserver que les 5 derniers logs par type
+  try {
+    foreach ($suffix in @('out.log','err.log')) {
+      $files = Get-ChildItem -Path $LogDir -Filter "ollama-*.${suffix}" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+      if ($files.Count -gt 5) {
+        $files | Select-Object -Skip 5 | ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue } catch {} }
+      }
+    }
+  } catch {}
+
   # Laisser Ollama choisir automatiquement CPU/GPU (aucun parametre force)
   Remove-Item Env:\OLLAMA_NO_GPU -ErrorAction SilentlyContinue | Out-Null
   Remove-Item Env:\OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue | Out-Null
@@ -161,6 +172,21 @@ $job = Start-Job -ScriptBlock {
 try {
   $resp = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/generate" -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 600
   Write-Host "[OK] Reponse: " ($resp.response | Out-String)
+  # Info simple: contexte demande vs utilise (si disponible)
+  try {
+    $requested = $NumCtx
+    $usedCtxLen = $null
+    if ($resp.PSObject.Properties.Name -contains 'context' -and $resp.context) {
+      $usedCtxLen = @($resp.context).Count
+    }
+    $promptTokens = $null
+    if ($resp.PSObject.Properties.Name -contains 'prompt_eval_count') { $promptTokens = [int]$resp.prompt_eval_count }
+    if ($promptTokens -ne $null) {
+      Write-Host ("[INFO] Contexte: demande={0} utilise(prompt_tokens)={1}" -f $requested, $promptTokens)
+    } elseif ($usedCtxLen -ne $null) {
+      Write-Host ("[INFO] Contexte: demande={0} utilise(context.len)={1}" -f $requested, $usedCtxLen)
+    }
+  } catch {}
   # Stats: eval_count, eval_duration, token/s
   if ($resp -and $resp.eval_duration -ne $null -and $resp.eval_count -ne $null) {
     $evalSec = [double]$resp.eval_duration / 1e9

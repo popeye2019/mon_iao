@@ -33,9 +33,25 @@ def _load_resources() -> Tuple[Dict[str, str], List[Tuple[re.Pattern, str]]]:
                     if f.upper() == "M":
                         flags |= re.MULTILINE
                 if patt:
+                    # Fix JSON-escaped backspace (\b) -> regex word boundary \b
+                    # In JSON, "\b" becomes a backspace char (U+0008) after decoding.
+                    # Replace that control char with a literal backslash-b sequence for regex.
+                    patt = patt.replace("\u0008", "\\b")
                     rules.append((re.compile(patt, flags), repl))
         except Exception:
             pass
+    # Fallback par défaut si le JSON est invalide ou vide
+    if not rules:
+        try:
+            rules = [
+                (re.compile(r"\bSaaS\b", re.IGNORECASE), "Software as a Service (SaaS)"),
+                (re.compile(r"\bSt\.?\b", re.IGNORECASE), "Saint"),
+                (re.compile(r"\bSte\.?\b", re.IGNORECASE), "Sainte"),
+                (re.compile(r"^(\s*(?:[-\u2022]\s*)?)R(\s*(?:[:\-\u2013\u2014]\s+))", re.MULTILINE), r"\1Poste de relevage (R)\2"),
+                (re.compile(r"(?<!\()\bR\b(?!\))", re.IGNORECASE), "Poste de relevage (R)"),
+            ]
+        except Exception:
+            rules = []
     return mapping, rules
 
 

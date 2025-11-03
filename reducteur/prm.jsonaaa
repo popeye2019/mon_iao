@@ -1,0 +1,57 @@
+[
+  {
+    "Agence": "AG_BRIVE",
+    "RAE ou PRM": 17599421108143,
+    "CodePPV": 113814,
+    "Nom Site PPV": "AEP 3 VILLAGES",
+    "Adresse": "",
+    "Localite": "ALLASSAC",
+    "CodePostal": 19240,
+    "CodeInsee": 19005,
+    "Metier": "EAU"
+  },
+  {
+    "Agence": "AG_BRIVE",
+    "RAE ou PRM": 17537916002298,
+    "CodePPV": 113816,
+    "Nom Site PPV": "AEP LAUJOUR",
+    "Adresse": "",
+    "Localite": "ALLASSAC",
+    "CodePostal": 19240,
+    "CodeInsee": 19005,
+    "Metier": "EAU"
+  },
+  {
+    "Agence": "AG_BRIVE",
+    "RAE ou PRM": 17530969581871,
+    "CodePPV": 112913,
+    "Nom Site PPV": "R LA BONTAT VOUTEZAC",
+    "Adresse": "LE SAILLANT LA BONTAT",
+    "Localite": "VOUTEZAC",
+    "CodePostal": 19130,
+    "CodeInsee": 19288,
+    "Metier": "ASS_Relevement"
+  },
+  {
+    "Agence": "AG_BRIVE",
+    "RAE ou PRM": 17507235858841,
+    "CodePPV": 113823,
+    "Nom Site PPV": "RES+SURP TOUR YSSANDON",
+    "Adresse": "LA TOUR C.I.S.E",
+    "Localite": "YSSANDON",
+    "CodePostal": 19310,
+    "CodeInsee": 19289,
+    "Metier": "EAU"
+  },
+  {
+    "Agence": "AG_BRIVE",
+    "RAE ou PRM": 17501736548144,
+    "CodePPV": 112915,
+    "Nom Site PPV": "R LA PRODELIE YSSANDON",
+    "Adresse": "LA PRODELIE",
+    "Localite": "YSSANDON",
+    "CodePostal": 19310,
+    "CodeInsee": 19289,
+    "Metier": "ASS_Relevement"
+  }
+]

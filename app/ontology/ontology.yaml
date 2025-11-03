@@ -1,0 +1,62 @@
+# Ontologie des actifs et attributs clés
+# Cette ontologie déclare les entités métiers et les champs prioritaires
+# pour guider l’ingestion (extraction/normalisation), le stockage (métadonnées),
+# et le requêtage (filtres/boosts) de la RAG.
+
+version: 0.1
+updated: 2025-11-01
+
+# Vocabulaire canonique (snake_case, unités explicites si pertinent)
+domain:
+  poste_relevage:
+    label: "Poste de relevage"
+    required:
+      - nombre_pompes           # int
+      - type_pompe             # string (ex: centrifuge, broyeuse)
+      - debit_m3h              # float (m3/h)
+      - situation              # string (ex: enterré, aérien)
+    optional:
+      - hauteur_refoulement_m  # float (m)
+      - marche_secours         # bool/string (ex: groupe électrogène)
+      - telesurveillance       # bool/string
+      - agence                 # string
+      - ppv                    # int (CodePPV)
+      - prm_id                 # string (RAE ou PRM)
+      - localite               # string
+      - code_postal            # int
+      - code_insee             # int
+
+  station_epuration:
+    label: "Station d’épuration"
+    required:
+      - charge_eqh             # int (équivalents-habitants)
+      - debit_m3h              # float (m3/h)
+      - procede                # string (ex: boues activées, SBR)
+    optional:
+      - rendement              # % ou ratio
+      - boues                  # string (gestion des boues)
+      - filiere_azote          # string
+      - filiere_phosphore      # string
+      - agence                 # string
+      - ppv                    # int (si applicable)
+      - localite               # string
+      - code_insee             # int
+
+# Champs transverses (utilisables pour tous types d’actifs)
+common_fields:
+  - agence
+  - ppv
+  - prm_id
+  - site_nom
+  - localite
+  - code_postal
+  - code_insee
+  - metier
+
+# Alias conseillés (normalisation sémantique)
+aliases:
+  debit: debit_m3h
+  charge: charge_eqh
+  poste_de_relevage: poste_relevage
+  step: station_epuration
+

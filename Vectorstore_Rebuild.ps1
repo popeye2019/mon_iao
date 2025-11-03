@@ -21,7 +21,8 @@ param(
   [int]$OllamaPort = 11434,
   [bool]$UseGpuIndex = $true,
   [switch]$AutoStartOllama,
-  [string]$OllamaExe = "C:\\Users\\franc\\AppData\\Local\\Programs\\Ollama\\ollama.exe"
+  [string]$OllamaExe = "C:\\Users\\franc\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
+  [string]$ChunksExport = ''
 )
 
 Set-StrictMode -Version Latest
@@ -41,6 +42,17 @@ function Start-OllamaAuto {
   $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
   $outLog = Join-Path $LogDir ("ollama-cuda-{0}.out.log" -f $ts)
   $errLog = Join-Path $LogDir ("ollama-cuda-{0}.err.log" -f $ts)
+
+  # Ne conserver que les 5 derniers jeux de logs (par suffixe)
+  try {
+    foreach ($suffix in @('out.log','err.log')) {
+      $files = Get-ChildItem -Path $LogDir -Filter "ollama-*.${suffix}" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+      if ($files.Count -gt 5) {
+        $files | Select-Object -Skip 5 | ForEach-Object { try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue } catch {} }
+      }
+    }
+  } catch {}
   Remove-Item Env:\OLLAMA_NO_GPU -ErrorAction SilentlyContinue | Out-Null
   Remove-Item Env:\OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue | Out-Null
   Remove-Item Env:\CUDA_VISIBLE_DEVICES -ErrorAction SilentlyContinue | Out-Null
@@ -63,18 +75,19 @@ Write-Host "[INFO] ProjectRoot: $ProjectRoot"
 Write-Host "[INFO] DataDir: $DataDir"
 Write-Host "[INFO] PersistDir: $PersistDir"
 
-# 1) venv local (env) + deps
+# 1) venv local (env) + deps (silencieux, n'afficher qu'en cas d'erreur)
 $venvDir = Join-Path $ProjectRoot 'env'
 $venvPython = Join-Path $venvDir 'Scripts\python.exe'
 $reqFile = Join-Path $ProjectRoot 'requirements.txt'
 if (-not (Test-Path $venvPython)) {
-  Write-Host "[INFO] Creation du venv local 'env'"
-  & python -m venv $venvDir
+  try { & python -m venv $venvDir *> $null 2>&1 } catch {}
+  if (-not (Test-Path $venvPython)) { Write-Warning "[WARN] Echec de creation du venv 'env'. Utilisation du Python systeme." }
 }
 if (Test-Path $venvPython) {
-  Write-Host "[INFO] MAJ pip + installation requirements"
-  & $venvPython -m pip install --upgrade pip | Write-Host
-  if (Test-Path $reqFile) { & $venvPython -m pip install -r $reqFile | Write-Host }
+  try { & $venvPython -m pip install --upgrade pip --disable-pip-version-check -q *> $null 2>&1 } catch { Write-Warning "[WARN] Echec MAJ pip: $($_.Exception.Message)" }
+  if (Test-Path $reqFile) {
+    try { & $venvPython -m pip install -r $reqFile --disable-pip-version-check -q *> $null 2>&1 } catch { Write-Warning "[WARN] Echec installation requirements.txt: $($_.Exception.Message)" }
+  }
 }
 
 # 2) Verifier/Demarrer Ollama si necessaire
@@ -91,62 +104,30 @@ Remove-Item Env:\OLLAMA_NO_GPU -ErrorAction SilentlyContinue | Out-Null
 Remove-Item Env:\OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue | Out-Null
 Remove-Item Env:\CUDA_VISIBLE_DEVICES -ErrorAction SilentlyContinue | Out-Null
 
-# 3) Executer Python: charger docs et (re)construire l'index
+if (-not $ChunksExport -or $ChunksExport.Trim().Length -eq 0) {
+  $ChunksExport = Join-Path $PersistDir 'chunks_export.jsonl'
+}
+
+# 3) Executer Python utilitaire: build index + export des chunks
 $embeddingNumGpuLiteral = if ($UseGpuIndex) { 'None' } else { '0' }
-$py = @"
-import os
-import sys
-import logging
-from app.loader import load_documents
-from app.indexer import build_or_load_index, get_vector_count
 
-data_dir = r"""$DataDir"""
-persist_dir = r"""$PersistDir"""
-
-os.makedirs(persist_dir, exist_ok=True)
-
-# Rendre les logs verbeux muets pendant l'indexation (remplace la ligne HTTP Request)
-for _name in [
-    'httpx', 'ollama', 'chromadb', 'llama_index', 'llama_index.core',
-    'llama_index.embeddings', 'urllib3'
-]:
-    try:
-        logging.getLogger(_name).setLevel(logging.WARNING)
-    except Exception:
-        pass
-
-docs = load_documents(data_dir)
-total = len(docs)
-if total == 0:
-    print("Aucun document a indexer.")
-else:
-    processed = 0
-    # Taille de lot: maximum 64 docs ou ~10 lots
-    import math
-    batch_size = max(1, min(64, math.ceil(total / 10)))
-    for i in range(0, total, batch_size):
-        batch = docs[i:i+batch_size]
-        idx = build_or_load_index(
-            data_documents=batch,
-            persist_dir=persist_dir,
-            llm_name=r"""$LlmModel""",
-            embedding_name=r"""$EmbeddingModel""",
-            llm_num_ctx=int($LlmNumCtx),
-            embedding_num_gpu=$embeddingNumGpuLiteral,
-        )
-        processed += len(batch)
-        pct = int(processed * 100 / total)
-        print(f"[{pct:3d}%] Indexation {processed}/{total}")
-count = get_vector_count(persist_dir)
-print(f"OK - vecteurs: {count}")
-"@
+$argsList = @(
+  '-m','app.utils.build_index',
+  '--data-dir', $DataDir,
+  '--persist-dir', $PersistDir,
+  '--llm-model', $LlmModel,
+  '--embedding-model', $EmbeddingModel,
+  '--llm-num-ctx', $LlmNumCtx,
+  '--embedding-num-gpu', $embeddingNumGpuLiteral,
+  '--export-chunks', $ChunksExport
+)
 
 Set-Location $ProjectRoot
 if (Test-Path $venvPython) {
-  $py | & $venvPython -
+  & $venvPython @argsList
   $exit = $LASTEXITCODE
 } else {
-  $py | python -
+  python @argsList
   $exit = $LASTEXITCODE
 }
 

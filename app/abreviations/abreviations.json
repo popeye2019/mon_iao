@@ -50,5 +50,6 @@
   "CVC": "Chauffage, Ventilation, Climatisation",
   "NF": "Norme Française",
   "PI": "Pression Interstitielle",
-  "SATESE": "Service d'Assistance Technique à l'Exploitation des Stations d'épuration"
+  "SATESE": "Service d'Assistance Technique à l'Exploitation des Stations d'épuration",
+  "RAE ou PRM": "Compteur electrique linky (numero de PRM)"
 }

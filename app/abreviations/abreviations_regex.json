@@ -1,8 +1,8 @@
 [
-  { "pattern": "\\bSaaS\\b", "replacement": "Software as a Service (SaaS)", "flags": ["I"] },
-  { "pattern": "\\bSt\\.?\\b",  "replacement": "Saint",  "flags": ["I"] },
-  { "pattern": "\\bSte\\.?\\b", "replacement": "Sainte", "flags": ["I"] },
-  { "pattern": "\\bpH\\b", "replacement": "potentiel hydrogene (pH)" },
-  { "pattern": "^(\\s*(?:[-\u2022]\\s*)?)R(\\s*(?:[:\\-\u2013\u2014]\\s+))", "replacement": "\\1Poste de relevage (R)\\2", "flags": ["M"] },
-  { "pattern": "(?<!\()\\bR\\b(?!\))", "replacement": "Poste de relevage (R)", "flags": ["I"] }
+  { "pattern": "\\\bSaaS\\\b", "replacement": "Software as a Service (SaaS)", "flags": ["I"] },
+  { "pattern": "\\\bSt\\\\.\\?\\\b",  "replacement": "Saint",  "flags": ["I"] },
+  { "pattern": "\\\bSte\\\\.\\?\\\b", "replacement": "Sainte", "flags": ["I"] },
+  { "pattern": "\\\bpH\\\b", "replacement": "potentiel hydrogene (pH)" },
+  { "pattern": "^(\\\\s*(?:[-\\u2022]\\\\s*)?)R(\\\\s*(?:[:-\\u2013\\u2014]\\\\s+))", "replacement": "\\\\1Poste de relevage (R)\\\\2", "flags": ["M"] },
+  { "pattern": "(?<!\\\\\()\\\bR\\\b(?!\\\\\))", "replacement": "Poste de relevage (R)", "flags": ["I"] }
 ]

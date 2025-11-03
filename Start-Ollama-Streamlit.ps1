@@ -32,12 +32,29 @@ function Test-OllamaUp {
     }
 }
 
+function Prune-OllamaLogs {
+    param([string]$LogDir = (Get-Location), [int]$Keep = 5)
+    try {
+        foreach ($suffix in @('out.log','err.log')) {
+            $files = Get-ChildItem -Path $LogDir -Filter "ollama-*.${suffix}" -File -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending
+            if ($files.Count -gt $Keep) {
+                $files | Select-Object -Skip $Keep | ForEach-Object {
+                    try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue } catch {}
+                }
+            }
+        }
+    } catch {}
+}
+
 function Start-OllamaAuto {
     param([string]$Exe, [int]$Port, [string]$LogDir)
     if (-not (Test-Path $Exe)) { throw "Ollama.exe introuvable: $Exe" }
     $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
     $outLog = Join-Path $LogDir ("ollama-cuda-{0}.out.log" -f $ts)
     $errLog = Join-Path $LogDir ("ollama-cuda-{0}.err.log" -f $ts)
+
+    Prune-OllamaLogs -LogDir $LogDir -Keep 5
 
     # Laisser Ollama choisir automatiquement CPU/GPU (aucune variable forcee)
     Remove-Item Env:\OLLAMA_NO_GPU -ErrorAction SilentlyContinue | Out-Null

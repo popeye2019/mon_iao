@@ -42,6 +42,29 @@ def load_documents(
     if not root.exists():
         return documents
 
+    # Bypass JSON spécifique: ingestion simple via SimpleDirectoryReader pour tous formats
+    try:
+        reader_kwargs = dict(
+            input_dir=str(root),
+            recursive=True,
+            filename_as_id=True,
+        )
+        if extensions:
+            reader_kwargs["required_exts"] = list(extensions)
+        if num_workers is not None:
+            try:
+                reader = SimpleDirectoryReader(**{**reader_kwargs, "num_workers": int(num_workers)})
+            except TypeError:
+                reader = SimpleDirectoryReader(**reader_kwargs)
+        else:
+            reader = SimpleDirectoryReader(**reader_kwargs)
+
+        for d in reader.load_data():
+            documents.append(Document(text=expand_abbreviations(d.text), metadata=d.metadata))
+        return documents
+    except Exception:
+        pass
+
     # Partitionne les fichiers en JSON et non-JSON
     all_files = [p for p in root.rglob('*') if p.is_file()]
     json_files = [p for p in all_files if p.suffix.lower() == '.json']
@@ -85,8 +108,9 @@ def load_documents(
             for v in obj.values():
                 yield from iter_string_leaves(v)
 
-    def make_kv_text_and_meta(obj) -> (str, dict):
-        """Rend l'objet sous forme lisible "cle: valeur" et un dict metadata plat.
+    def make_kv_text_and_meta(obj) -> (str, dict, str):
+        """Rend l'objet sous forme lisible "cle : valeur", un dict metadata plat,
+        et une version compacte monoligne "cle : valeur | cle2 : valeur2".
 
         - Si obj est un dict: une ligne par cle primaire; valeurs scalaires/strings
           sont rendues directement, les listes sont jointes par ", ", les dicts
@@ -109,28 +133,39 @@ def load_documents(
                 # aplatir une profondeur
                 parts = []
                 for sk, sv in v.items():
-                    parts.append(f"{sk}: {fmt_val(sv)}")
+                    parts.append(f"{sk} : {fmt_val(sv)}")
                 return "; ".join(parts)
             return str(v)
 
         lines = []
+        kv_pairs = []
         if isinstance(obj, dict):
             for k, v in obj.items():
                 val = fmt_val(v)
-                lines.append(f"{k}: {val}")
+                # expansion d'abréviations uniquement sur les valeurs
+                val_exp = expand_abbreviations(val) if isinstance(val, str) else val
+                lines.append(f"{k} : {val_exp}")
+                kv_pairs.append(f"{k} : {val_exp}")
                 # Dupliquer la paire dans metadata (stringifiée)
                 try:
-                    meta[str(k)] = val
+                    meta[str(k)] = val if isinstance(val, str) else str(val)
                 except Exception:
                     pass
         elif isinstance(obj, list):
             # Ligne unique avec elements
             val = ", ".join(fmt_val(x) for x in obj)
             lines.append(val)
+            kv_pairs.append(val)
         else:
-            lines.append(fmt_val(obj))
+            val = fmt_val(obj)
+            val_exp = expand_abbreviations(val) if isinstance(val, str) else val
+            lines.append(val_exp)
+            if isinstance(val_exp, str):
+                kv_pairs.append(val_exp)
 
-        return "\n".join(l for l in lines if l and str(l).strip()), meta
+        text_block = "\n".join(l for l in lines if l and str(l).strip())
+        kv_line = " | ".join(p for p in kv_pairs if p and str(p).strip())
+        return text_block, meta, kv_line
 
     for jf in json_files:
         try:
@@ -140,15 +175,21 @@ def load_documents(
             continue
 
         def emit_record(path_str: str, obj):
-            text, meta_extra = make_kv_text_and_meta(obj)
+            text, meta_extra, kv_line = make_kv_text_and_meta(obj)
             if not text:
                 return
+            header = f"[Source: {os.path.basename(str(jf))} | JSON path: {path_str}]"
+            if kv_line:
+                final_text = header + "\n" + f"kv line : {kv_line}" + "\n" + text
+            else:
+                final_text = header + "\n" + text
             documents.append(
                 Document(
-                    text=expand_abbreviations(text),
+                    text=final_text,
                     metadata={
                         'file_path': str(jf),
                         'json_path': path_str,
+                        'kv_line': kv_line,
                         **meta_extra,
                     },
                 )

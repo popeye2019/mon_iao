@@ -1,0 +1,94 @@
+# Schémas d’ingestion/normalisation par type d’actif
+# Lie les champs source (JSON/PDF/DOCX) aux clés canoniques de l’ontologie.
+
+version: 0.1
+updated: 2025-11-01
+
+# Détection (facultatif) du type d’actif via indices texte
+identify:
+  poste_relevage:
+    keywords: ["poste de relevage", "PR ", "pompe de relevage"]
+  station_epuration:
+    keywords: ["station d'épuration", "STEP", "boues activées", "SBR"]
+
+schemas:
+  # Exemple de mapping pour des enregistrements type PRM (JSON)
+  generic_record:
+    mappings:
+      - source: "CodePPV"
+        target: "ppv"
+        type: int
+      - source: "Agence"
+        target: "agence"
+        type: string
+      - source: "RAE ou PRM"
+        target: "prm_id"
+        type: string
+      - source: "Nom Site PPV"
+        target: "site_nom"
+        type: string
+      - source: "Localite"
+        target: "localite"
+        type: string
+      - source: "CodePostal"
+        target: "code_postal"
+        type: int
+      - source: "CodeInsee"
+        target: "code_insee"
+        type: int
+      - source: "Metier"
+        target: "metier"
+        type: string
+
+    validate:
+      required_any: ["ppv", "prm_id", "site_nom"]
+
+  poste_relevage:
+    mappings:
+      - source: "NombrePompes|NbPompes"
+        target: "nombre_pompes"
+        type: int
+        regex: true
+      - source: "TypePompe|Type_Pompe"
+        target: "type_pompe"
+        type: string
+        regex: true
+      - source: "Debit|Débit"
+        target: "debit_m3h"
+        type: float
+        unit: "m3/h"
+        regex: true
+      - source: "Situation"
+        target: "situation"
+        type: string
+
+    validate:
+      required: ["nombre_pompes", "type_pompe", "debit_m3h"]
+      ranges:
+        debit_m3h: { min: 0 }
+
+  station_epuration:
+    mappings:
+      - source: "Charge|EH|EqH"
+        target: "charge_eqh"
+        type: int
+        regex: true
+      - source: "Débit|Debit"
+        target: "debit_m3h"
+        type: float
+        unit: "m3/h"
+        regex: true
+      - source: "Procédé|Procedes|Process"
+        target: "procede"
+        type: string
+        regex: true
+
+    validate:
+      required: ["charge_eqh", "debit_m3h", "procede"]
+
+# Pondérations/boosts (indicatif)
+ranking:
+  required_weight: 2.0
+  optional_weight: 1.0
+  exact_filter_boost: 3.0
+
